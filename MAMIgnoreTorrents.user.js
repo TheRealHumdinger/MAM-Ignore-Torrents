@@ -5,13 +5,13 @@
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
 // @version      0.5.0
-// @icon         https://www.myanonamouse.net/pic/smilies/yesmaster.gif
+// @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @AdownloadURL https://update.greasyfork.org/scripts/485525/Remove%20Seeding.user.js
-// @AupdateURL https://update.greasyfork.org/scripts/485525/Remove%20Seeding.meta.js
+// @downloadURL https://github.com/TheRealHumdinger/MAM-Ignore-Torrents/raw/main/MAMIgnoreTorrents.user.js
+// @updateURL https://github.com/TheRealHumdinger/MAM-Ignore-Torrents/raw/main/MAMIgnoreTorrents.user.js
 // ==/UserScript==
 (function () {
   "use strict";
