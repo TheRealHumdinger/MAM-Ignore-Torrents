@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name Ignore Torrents
+// @name MAM Ignore Torrents
 // @namespace    Humdinger
 // @author       Humdinger
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
-// @version      0.5.0
+// @version      0.5.4
 // @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
@@ -31,11 +31,14 @@
   const observableDiv = document.querySelector('div#ssr');
   const observer = new MutationObserver((mutationsList, observer) => {
     for (let mutation of mutationsList) {
-      if (Array.from(mutation.addedNodes).some(node => node.classList.contains('newTorTable'))) {
+      if (Array.from(mutation.addedNodes).some(node => node.classList && node.classList.contains('newTorTable'))) {
         console.log('New torrent table added.');
         ignored = 0;
+        
+        document.getElementById('ignoringSpan').textContent = '';
         addRemoveButtons();
         removeTorrentAdded();
+        addMassActionButtons();
       }
     }
   });
@@ -56,6 +59,38 @@
     }
   }
 
+  function addMassActionButtons() {
+    let el = document.querySelector("div#massActions");
+    var ignoreAllButton = document.createElement("button");
+    ignoreAllButton.textContent = "Ignore All";
+    //ignoreAllButton.classList.add("torFormButton");
+    //ignoreAllButton.role = "button";
+    ignoreAllButton.onclick = function () {
+      var rows = document.querySelector("table.newTorTable").querySelectorAll('[id^="tdr"]');
+      for (let i = rows.length - 1; i > -1; i--) {
+        if (!listOfIgnoredTorrents.includes(rows[i].id.substring(4))) {
+          ignoreTorrent(rows[i].children[3].children[2], rows[i].id.substring(4));
+        }
+      }
+    };
+
+    var unIgnoreAllButton = document.createElement("button");
+    unIgnoreAllButton.textContent = "Unignore All";
+    //unIgnoreAllButton.classList.add("torFormButton");
+    //unIgnoreAllButton.role = "button";
+    unIgnoreAllButton.onclick = function () {
+      var rows = document.querySelector("table.newTorTable").querySelectorAll('[id^="tdr"]');
+      for (let i = rows.length - 1; i > -1; i--) {
+        if (listOfIgnoredTorrents.includes(rows[i].id.substring(4))) {
+          ignoreTorrent(rows[i].children[3].children[2], rows[i].id.substring(4));
+        }
+      }
+    };
+    el.appendChild(document.createElement("br"));
+    el.appendChild(ignoreAllButton);
+    el.appendChild(document.createElement("br"));
+    el.appendChild(unIgnoreAllButton);
+  }
   // This is the action performed when the thumbs up/down icon is clicked on a torrent
   // If thumbs down, the torrent is added to the list of ignored torrents and the icon is changed to thumbs up
   // then the torrent is removed from the table if the hideIgnoredTorrents setting is true
