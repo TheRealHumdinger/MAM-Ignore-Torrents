@@ -135,7 +135,7 @@
     newImg.style.cursor = "pointer";
     newImg.style.width = "18px";
     newImg.style.height = "18px";
-    myDiv.insertBefore(myDiv.querySelectorAll("br")[1],newImg);
+    myDiv.insertBefore(newImg, myDiv.querySelectorAll("br")[1]);
   }
 
   // The function that removes the "Torrents added" rows from the table
