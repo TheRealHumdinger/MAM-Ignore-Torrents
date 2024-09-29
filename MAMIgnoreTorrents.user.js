@@ -5,7 +5,7 @@
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
 // @match        https://www.myanonamouse.net/t/*
-// @version      0.5.5
+// @version      0.5.6
 // @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
