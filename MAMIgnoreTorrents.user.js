@@ -5,7 +5,7 @@
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
 // @match        https://www.myanonamouse.net/t/*
-// @version      0.5.6
+// @version      0.5.7
 // @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
@@ -37,7 +37,7 @@
         if (Array.from(mutation.addedNodes).some(node => node.classList && node.classList.contains('newTorTable'))) {
           console.log('New torrent table added.');
           ignored = 0;
-          
+
           document.getElementById('ignoringSpan').textContent = '';
           addRemoveButtons();
           removeTorrentAdded();
@@ -54,7 +54,7 @@
     span.style.fontSize = "18px";
     span.id = "ignoringSpan";
     el.appendChild(span);
-  
+
     // Create show/hide ignored torrents button
     var showHideButton = document.createElement("h1");
     if (hideIgnoredTorrents) {
@@ -81,7 +81,7 @@
       }
     };
     document.getElementById("searchReset").insertAdjacentElement("afterend", showHideButton);
-  
+
     var colorInput = document.createElement("input");
     colorInput.classList.add("torFormButton");
     colorInput.type = "color";
@@ -99,12 +99,12 @@
       }
     };
     document.getElementById("ignoredToggle").insertAdjacentElement("afterend", colorInput);
-  
+
     var colorInputDiv = document.createElement("div");
     colorInputDiv.id = "myBGColorInputDiv";
     colorInputDiv.style.position = "relative";
     colorInputDiv.style.display = "inline-block";
-  
+
     var colorInputTooltip = document.createElement("span");
     colorInputTooltip.textContent = "Set background color for ignored torrents";
     colorInputTooltip.style = "font-size: 14px; position: absolute; width: 250px; top: 20px; margin-left: -160px; color: white; background-color: black; padding: 3px; border-radius: 6px; text-align: center; cursor: help; display: inline-block; visibility: hidden;";
@@ -121,7 +121,7 @@
   if (window.location.href.includes("/t/")) {
     var torrentId = window.location.href.split("/").pop();
     if (DEBUG > 0) console.log("Torrent ID: " + torrentId);
-    var myDiv = document.querySelectorAll("div.torDetRow")[9].querySelectorAll("div")[0];
+    var myDiv = document.querySelectorAll("div.torDetRow")[document.querySelectorAll("div.torDetRow").length - 1].querySelectorAll("div")[0];
 
     let newImg = document.createElement("img");
     if (listOfIgnoredTorrents.includes(torrentId)) {
