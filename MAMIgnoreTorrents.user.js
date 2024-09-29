@@ -4,7 +4,8 @@
 // @author       Humdinger
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
-// @version      0.5.4
+// @match        https://www.myanonamouse.net/t/*
+// @version      0.5.5
 // @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
@@ -18,32 +19,124 @@
 
   const DEBUG = 1; // Debugging mode on (1) or off (0)
   if (DEBUG > 0) console.log("Starting Ignored Torrents script");
-  var ignored = 0; // count of torrents ignored
   var listOfIgnoredTorrents = GM_getValue("GM_IgnoredTorrents", []);
-  var hideIgnoredTorrents = GM_getValue("GM_HideIgnoredTorrents", false);
-  var ignoredBG = GM_getValue("GM_IgnoredBG", "#220"); // Background color for non-removed, ignored torrents
-  // debugger
 
-  // Add the observer to the main container div with id 'ssr'
-  // This is to detect when the new torrent table is added to the page
-  // The actions performed are reset the counts, remove the elements,
-  // add the remove buttons, and remove the "Torrents added" rows
-  const observableDiv = document.querySelector('div#ssr');
-  const observer = new MutationObserver((mutationsList, observer) => {
-    for (let mutation of mutationsList) {
-      if (Array.from(mutation.addedNodes).some(node => node.classList && node.classList.contains('newTorTable'))) {
-        console.log('New torrent table added.');
-        ignored = 0;
-        
-        document.getElementById('ignoringSpan').textContent = '';
-        addRemoveButtons();
-        removeTorrentAdded();
-        addMassActionButtons();
+  if (window.location.href.includes("/tor/browse.php")) {
+    var ignored = 0; // count of torrents ignored
+    var hideIgnoredTorrents = GM_getValue("GM_HideIgnoredTorrents", false);
+    var ignoredBG = GM_getValue("GM_IgnoredBG", "#220"); // Background color for non-removed, ignored torrents
+    // debugger
+
+    // Add the observer to the main container div with id 'ssr'
+    // This is to detect when the new torrent table is added to the page
+    // The actions performed are reset the counts, remove the elements,
+    // add the remove buttons, and remove the "Torrents added" rows
+    const observableDiv = document.querySelector('div#ssr');
+    const observer = new MutationObserver((mutationsList, observer) => {
+      for (let mutation of mutationsList) {
+        if (Array.from(mutation.addedNodes).some(node => node.classList && node.classList.contains('newTorTable'))) {
+          console.log('New torrent table added.');
+          ignored = 0;
+          
+          document.getElementById('ignoringSpan').textContent = '';
+          addRemoveButtons();
+          removeTorrentAdded();
+          addMassActionButtons();
+        }
       }
+    });
+    observer.observe(observableDiv, { childList: true });
+    // observer.disconnect();
+
+    let el = document.querySelector("div.blockFoot");
+    var span = document.createElement("span");
+    span.textContent = "";
+    span.style.fontSize = "18px";
+    span.id = "ignoringSpan";
+    el.appendChild(span);
+  
+    // Create show/hide ignored torrents button
+    var showHideButton = document.createElement("h1");
+    if (hideIgnoredTorrents) {
+      showHideButton.textContent = "Show Ignored Torrents";
+    } else {
+      showHideButton.textContent = "Remove Ignored Torrents";
     }
-  });
-  observer.observe(observableDiv, { childList: true });
-  // observer.disconnect();
+    showHideButton.id = "ignoredToggle";
+    showHideButton.classList.add("torFormButton");
+    showHideButton.role = "button";
+    showHideButton.onclick = function () {
+      if (hideIgnoredTorrents) {
+        hideIgnoredTorrents = false;
+        showHideButton.textContent = "Remove Ignored Torrents";
+        // document.getElementById("myBGColorInput").style.display = "";
+        GM_setValue("GM_HideIgnoredTorrents", hideIgnoredTorrents);
+        window.location.reload();
+      } else {
+        hideIgnoredTorrents = true;
+        showHideButton.textContent = "Show Ignored Torrents";
+        document.getElementById("myBGColorInput").style.display = "none";
+        GM_setValue("GM_HideIgnoredTorrents", hideIgnoredTorrents);
+        removeIgnoredTorrents();
+      }
+    };
+    document.getElementById("searchReset").insertAdjacentElement("afterend", showHideButton);
+  
+    var colorInput = document.createElement("input");
+    colorInput.classList.add("torFormButton");
+    colorInput.type = "color";
+    colorInput.value = ignoredBG;
+    colorInput.id = "myBGColorInput";
+    if (hideIgnoredTorrents) {
+      colorInput.style.display = "none";
+    }
+    colorInput.onchange = function () {
+      GM_setValue("GM_IgnoredBG", colorInput.value);
+      for (let row of document.querySelector("table.newTorTable").querySelectorAll('[id^="tdr"]')) {
+        if (listOfIgnoredTorrents.includes(row.id.substring(4))) {
+          row.style.backgroundColor = colorInput.value;
+        }
+      }
+    };
+    document.getElementById("ignoredToggle").insertAdjacentElement("afterend", colorInput);
+  
+    var colorInputDiv = document.createElement("div");
+    colorInputDiv.id = "myBGColorInputDiv";
+    colorInputDiv.style.position = "relative";
+    colorInputDiv.style.display = "inline-block";
+  
+    var colorInputTooltip = document.createElement("span");
+    colorInputTooltip.textContent = "Set background color for ignored torrents";
+    colorInputTooltip.style = "font-size: 14px; position: absolute; width: 250px; top: 20px; margin-left: -160px; color: white; background-color: black; padding: 3px; border-radius: 6px; text-align: center; cursor: help; display: inline-block; visibility: hidden;";
+    colorInput.onmouseover = function () {
+      colorInputTooltip.style.visibility = "visible";
+    };
+    colorInput.onmouseout = function () {
+      colorInputTooltip.style.visibility = "hidden";
+    };
+    colorInputDiv.appendChild(colorInputTooltip);
+    document.getElementById("myBGColorInput").insertAdjacentElement("afterend", colorInputDiv);
+  }
+
+  if (window.location.href.includes("/t/")) {
+    var torrentId = window.location.href.split("/").pop();
+    if (DEBUG > 0) console.log("Torrent ID: " + torrentId);
+    var myDiv = document.querySelectorAll("div.torDetRow")[9].querySelectorAll("div")[0];
+
+    let newImg = document.createElement("img");
+    if (listOfIgnoredTorrents.includes(torrentId)) {
+      newImg.src = "https://cdn.myanonamouse.net/imagebucket/204586/12008_thumbs_up_icon.png";
+    } else {
+      newImg.src = "https://cdn.myanonamouse.net/imagebucket/204586/12014_thumbs_down_icon.png";
+    }
+    newImg.onclick = function () {
+      ignoreTorrent(this, torrentId);
+    };
+    newImg.style.cursor = "pointer";
+    newImg.style.width = "18px";
+    newImg.style.height = "18px";
+    myDiv.insertBefore(myDiv.querySelectorAll("br")[1],newImg);
+  }
 
   // The function that removes the "Torrents added" rows from the table
   // these rows are really unnecessary and just take up space
@@ -161,75 +254,6 @@
       span.textContent = ` ${ignored} Ignored Torrents. `;
     }
   }
-
-  let el = document.querySelector("div.blockFoot");
-  var span = document.createElement("span");
-  span.textContent = "";
-  span.style.fontSize = "18px";
-  span.id = "ignoringSpan";
-  el.appendChild(span);
-
-  // Create show/hide ignored torrents button
-  var showHideButton = document.createElement("h1");
-  if (hideIgnoredTorrents) {
-    showHideButton.textContent = "Show Ignored Torrents";
-  } else {
-    showHideButton.textContent = "Remove Ignored Torrents";
-  }
-  showHideButton.id = "ignoredToggle";
-  showHideButton.classList.add("torFormButton");
-  showHideButton.role = "button";
-  showHideButton.onclick = function () {
-    if (hideIgnoredTorrents) {
-      hideIgnoredTorrents = false;
-      showHideButton.textContent = "Remove Ignored Torrents";
-      // document.getElementById("myBGColorInput").style.display = "";
-      GM_setValue("GM_HideIgnoredTorrents", hideIgnoredTorrents);
-      window.location.reload();
-    } else {
-      hideIgnoredTorrents = true;
-      showHideButton.textContent = "Show Ignored Torrents";
-      document.getElementById("myBGColorInput").style.display = "none";
-      GM_setValue("GM_HideIgnoredTorrents", hideIgnoredTorrents);
-      removeIgnoredTorrents();
-    }
-  };
-  document.getElementById("searchReset").insertAdjacentElement("afterend", showHideButton);
-
-  var colorInput = document.createElement("input");
-  colorInput.classList.add("torFormButton");
-  colorInput.type = "color";
-  colorInput.value = ignoredBG;
-  colorInput.id = "myBGColorInput";
-  if (hideIgnoredTorrents) {
-    colorInput.style.display = "none";
-  }
-  colorInput.onchange = function () {
-    GM_setValue("GM_IgnoredBG", colorInput.value);
-    for (let row of document.querySelector("table.newTorTable").querySelectorAll('[id^="tdr"]')) {
-      if (listOfIgnoredTorrents.includes(row.id.substring(4))) {
-        row.style.backgroundColor = colorInput.value;
-      }
-    }
-  };
-  document.getElementById("ignoredToggle").insertAdjacentElement("afterend", colorInput);
-
-  var colorInputDiv = document.createElement("div");
-  colorInputDiv.id = "myBGColorInputDiv";
-  colorInputDiv.style.position = "relative";
-  colorInputDiv.style.display = "inline-block";
-
-  var colorInputTooltip = document.createElement("span");
-  colorInputTooltip.textContent = "Set background color for ignored torrents";
-  colorInputTooltip.style = "font-size: 14px; position: absolute; width: 250px; top: 20px; margin-left: -160px; color: white; background-color: black; padding: 3px; border-radius: 6px; text-align: center; cursor: help; display: inline-block; visibility: hidden;";
-  colorInput.onmouseover = function () {
-    colorInputTooltip.style.visibility = "visible";
-  };
-  colorInput.onmouseout = function () {
-    colorInputTooltip.style.visibility = "hidden";
-  };
-  colorInputDiv.appendChild(colorInputTooltip);
-  document.getElementById("myBGColorInput").insertAdjacentElement("afterend", colorInputDiv);
 
   if (DEBUG > 0) console.log("Ignore Torrents script done.");
 })();
