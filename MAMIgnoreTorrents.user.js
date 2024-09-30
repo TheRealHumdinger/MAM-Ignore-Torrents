@@ -5,7 +5,7 @@
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
 // @match        https://www.myanonamouse.net/t/*
-// @version      0.5.7
+// @version      0.5.8
 // @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
@@ -121,7 +121,8 @@
   if (window.location.href.includes("/t/")) {
     var torrentId = window.location.href.split("/").pop();
     if (DEBUG > 0) console.log("Torrent ID: " + torrentId);
-    var myDiv = document.querySelectorAll("div.torDetRow")[document.querySelectorAll("div.torDetRow").length - 1].querySelectorAll("div")[0];
+    // Fix suggested by pajn to get the correct div for the thumbs up/down icon
+    var myDiv = document.querySelector('div.torDetRow:has(a[href^="/tor/upload.php?"]) div');
 
     let newImg = document.createElement("img");
     if (listOfIgnoredTorrents.includes(torrentId)) {
