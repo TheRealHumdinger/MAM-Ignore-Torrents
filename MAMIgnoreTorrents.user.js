@@ -5,7 +5,8 @@
 // @description  Adds thumbs up/down icons to the torrent rows to allow for managing ignored torrents
 // @match        https://www.myanonamouse.net/tor/browse.php*
 // @match        https://www.myanonamouse.net/t/*
-// @version      0.5.8
+// @match        https://www.myanonamouse.net/tor/requests2.php*
+// @version      0.6.0
 // @icon https://cdn.myanonamouse.net/imagebucket/204586/MouseyIcon.png
 // @homepage     https://www.myanonamouse.net
 // @license      MIT
@@ -20,7 +21,122 @@
   const DEBUG = 1; // Debugging mode on (1) or off (0)
   if (DEBUG > 0) console.log("Starting Ignored Torrents script");
   var listOfIgnoredTorrents = GM_getValue("GM_IgnoredTorrents", []);
+  var listOfIgnoredRequests = GM_getValue("GM_IgnoredRequests", []);
 
+// Check if the script is running on the requests page
+  if (window.location.href.includes("/tor/requests2.php")) {
+    var ignoredRequests = 0; // count of requests ignored
+    var hideIgnoredRequests = GM_getValue("GM_HideIgnoredRequests", false);
+    var ignoredRequestsBG = GM_getValue("GM_IgnoredRequestsBG", "#220"); // Background color for non-removed, ignored requests
+
+    // Add the observer to the main container div with id 'ssr'
+    // This one works a bit different since it looks for ol elements with class "torRow"
+    // It sets a flag to allow the actions to take place only once after it's done.
+    // The actions performed are reset the counts, remove the elements,
+    const observableDiv = document.querySelector('ol#torRows');
+    const observer = new MutationObserver((mutationsList, observer) => {
+      var runIt = false;
+      for (let mutation of mutationsList) {
+        if (Array.from(mutation.addedNodes).some(node => node.classList && node.classList.contains('torRow'))) {
+            runIt = true;
+        }
+      }
+      if (runIt) {
+          document.getElementById('ignoringRequestSpan').textContent = '';
+          ignoredRequests = 0;
+          addRequestRemoveButtons();
+      }
+    });
+    observer.observe(observableDiv, { childList: true });
+    // observer.disconnect();
+
+    // Add a span to display the count of ignored requests
+    let el = document.querySelector("div.blockFoot");
+    var requestSpan = document.createElement("span");
+    requestSpan.textContent = "";
+    requestSpan.style.fontSize = "18px";
+    requestSpan.id = "ignoringRequestSpan";
+    el.appendChild(requestSpan);
+
+    // Create show/hide ignored requests button
+    var showHideRequestButton = document.createElement("div");
+    if (hideIgnoredRequests) {
+      showHideRequestButton.textContent = "Show Ignored Requests";
+    } else {
+      showHideRequestButton.textContent = "Remove Ignored Requests";
+    }
+    showHideRequestButton.id = "ignoredRequestToggle";
+    showHideRequestButton.classList.add("torFormButton");
+    showHideRequestButton.role = "button";
+    showHideRequestButton.onclick = function () {
+      if (hideIgnoredRequests) {
+        hideIgnoredRequests = false;
+        showHideRequestButton.textContent = "Remove Ignored Requests";
+        GM_setValue("GM_HideIgnoredRequests", hideIgnoredRequests);
+        window.location.reload();
+      } else {
+        hideIgnoredRequests = true;
+        showHideRequestButton.textContent = "Show Ignored Requests";
+        document.getElementById("myRequestBGColorInput").style.display = "none";
+        GM_setValue("GM_HideIgnoredRequests", hideIgnoredRequests);
+        removeIgnoredRequests();
+      }
+    };
+
+    // Find the search reset button or similar element to insert after
+    let searchResetBtn = document.getElementsByClassName("torrentSearch")[0];
+    if (searchResetBtn) {
+      searchResetBtn.insertAdjacentElement("afterend", showHideRequestButton);
+    } else {
+      // Fallback: insert at the beginning of the page content
+      document.querySelector("div.blockFoot").insertAdjacentElement("beforebegin", showHideRequestButton);
+    }
+
+    // Create color picker for ignored requests background
+    var requestColorInput = document.createElement("input");
+    requestColorInput.classList.add("torFormButton");
+    requestColorInput.type = "color";
+    requestColorInput.value = ignoredRequestsBG;
+    requestColorInput.id = "myRequestBGColorInput";
+    if (hideIgnoredRequests) {
+      requestColorInput.style.display = "none";
+    }
+    requestColorInput.onchange = function () {
+      GM_setValue("GM_IgnoredRequestsBG", requestColorInput.value);
+      for (let row of document.querySelectorAll('li.torRow')) {
+        let requestLink = row.querySelector('a.torTitle[href*="/tor/viewRequest.php/"]');
+        if (requestLink) {
+          let requestId = requestLink.href.split("/").pop();
+          if (listOfIgnoredRequests.includes(requestId)) {
+            row.style.backgroundColor = requestColorInput.value;
+          }
+        }
+      }
+    };
+    document.getElementById("ignoredRequestToggle").insertAdjacentElement("afterend", requestColorInput);
+
+    // Create tooltip for color picker
+    var requestColorInputDiv = document.createElement("div");
+    requestColorInputDiv.id = "myRequestBGColorInputDiv";
+    requestColorInputDiv.style.position = "relative";
+    requestColorInputDiv.style.display = "inline-block";
+
+    var requestColorInputTooltip = document.createElement("span");
+    requestColorInputTooltip.textContent = "Set background color for ignored requests";
+    requestColorInputTooltip.style = "font-size: 14px; position: absolute; width: 250px; top: 20px; margin-left: -160px; color: white; background-color: black; padding: 3px; border-radius: 6px; text-align: center; cursor: help; display: inline-block; visibility: hidden;";
+    requestColorInput.onmouseover = function () {
+      requestColorInputTooltip.style.visibility = "visible";
+    };
+    requestColorInput.onmouseout = function () {
+      requestColorInputTooltip.style.visibility = "hidden";
+    };
+    requestColorInputDiv.appendChild(requestColorInputTooltip);
+    document.getElementById("myRequestBGColorInput").insertAdjacentElement("afterend", requestColorInputDiv);
+
+    addRequestMassActionButtons();
+  }
+
+// Check if it's on the torrent browse page or the torrent details page
   if (window.location.href.includes("/tor/browse.php")) {
     var ignored = 0; // count of torrents ignored
     var hideIgnoredTorrents = GM_getValue("GM_HideIgnoredTorrents", false);
@@ -34,6 +150,7 @@
     const observableDiv = document.querySelector('div#ssr');
     const observer = new MutationObserver((mutationsList, observer) => {
       for (let mutation of mutationsList) {
+        console.log('MUTEY!');
         if (Array.from(mutation.addedNodes).some(node => node.classList && node.classList.contains('newTorTable'))) {
           console.log('New torrent table added.');
           ignored = 0;
@@ -254,6 +371,154 @@
     if (ignored > 0) {
       span.textContent = ` ${ignored} Ignored Torrents. `;
     }
+  }
+
+  // ========== REQUEST-SPECIFIC FUNCTIONS ==========
+
+  // This function adds the thumbs up/down icons to request rows
+  // It also removes the rows that are in the list of ignored requests if the hideIgnoredRequests setting is true
+  function addRequestRemoveButtons() {
+    console.log('Starting addRequestRemoveButtons');
+    let rows = document.querySelectorAll('li.torRow');
+
+    for (let i = 0; i < rows.length; i++) {
+      let requestLink = rows[i].querySelector('a.torTitle[href*="/tor/viewRequest.php/"]');
+      let torRight = rows[i].querySelectorAll('div.torRight')[0];
+      if (requestLink) {
+        let requestId = requestLink.href.split("/").pop();
+
+        if (listOfIgnoredRequests.includes(requestId) && hideIgnoredRequests) {
+          ignoredRequests += 1;
+          rows[i].remove();
+        } else {
+          // Add thumbs up/down icon
+          let newImg = document.createElement("img");
+          if (listOfIgnoredRequests.includes(requestId)) {
+            rows[i].style.backgroundColor = ignoredRequestsBG;
+            newImg.src = "https://cdn.myanonamouse.net/imagebucket/204586/12008_thumbs_up_icon.png";
+          } else {
+            newImg.src = "https://cdn.myanonamouse.net/imagebucket/204586/12014_thumbs_down_icon.png";
+          }
+          newImg.onclick = function () {
+            ignoreRequest(this, requestId, rows[i]);
+          };
+          newImg.style.cursor = "pointer";
+          newImg.style.width = "18px";
+          newImg.style.height = "18px";
+          newImg.style.marginLeft = "10px";
+
+          // Append the icon to the bottom right
+          torRight.appendChild(document.createElement('br'));
+          torRight.appendChild(newImg);
+        }
+      }
+    }
+
+    if (ignoredRequests > 0) {
+      requestSpan.textContent = ` ${ignoredRequests} Ignored Requests. `;
+    }
+  }
+
+  // This is the action performed when the thumbs up/down icon is clicked on a request
+  // If thumbs down, the request is added to the list of ignored requests and the icon is changed to thumbs up
+  // then the request is removed from the list if the hideIgnoredRequests setting is true
+  // If thumbs up, the request is removed from the list of ignored requests and the icon is changed to thumbs down
+  function ignoreRequest(target, id, row) {
+    if (target.src.includes("thumbs_down_icon")) {
+      listOfIgnoredRequests.push(id);
+      GM_setValue("GM_IgnoredRequests", listOfIgnoredRequests);
+      target.src = "https://cdn.myanonamouse.net/imagebucket/204586/12008_thumbs_up_icon.png";
+      row.style.backgroundColor = ignoredRequestsBG;
+      if (hideIgnoredRequests) {
+        ignoredRequests += 1;
+        row.remove();
+        requestSpan.textContent = ` ${ignoredRequests} Ignored Requests. `;
+      }
+    } else {
+      listOfIgnoredRequests = listOfIgnoredRequests.filter((item) => item !== id);
+      GM_setValue("GM_IgnoredRequests", listOfIgnoredRequests);
+      target.src = "https://cdn.myanonamouse.net/imagebucket/204586/12014_thumbs_down_icon.png";
+      row.style.backgroundColor = "";
+    }
+  }
+
+  // This function removes the rows that are in the list of ignored requests
+  function removeIgnoredRequests() {
+    let rows = document.querySelectorAll('li.torRow');
+    for (let i = 0; i < rows.length; i++) {
+      let requestLink = rows[i].querySelector('a.torTitle[href*="/tor/viewRequest.php/"]');
+      if (requestLink) {
+        let requestId = requestLink.href.split("/").pop();
+        if (listOfIgnoredRequests.includes(requestId)) {
+          ignoredRequests += 1;
+          rows[i].remove();
+        }
+      }
+    }
+    if (ignoredRequests > 0) {
+      requestSpan.textContent = ` ${ignoredRequests} Ignored Requests. `;
+    }
+  }
+
+  // Add mass action buttons for requests (Ignore All / Unignore All)
+  function addRequestMassActionButtons() {
+    // Find or create a mass actions container
+    let massActionsDiv = document.querySelector("div#massActions");
+
+    // If the massActions div doesn't exist on the requests page, create one
+    if (!massActionsDiv) {
+      massActionsDiv = document.createElement("div");
+      massActionsDiv.id = "massActions";
+      massActionsDiv.style.marginTop = "10px";
+      massActionsDiv.style.marginBottom = "10px";
+
+      // Insert it before the request rows
+      let requestsContainer = document.querySelector('ol.torRows');
+      if (requestsContainer) {
+        requestsContainer.parentElement.insertBefore(massActionsDiv, requestsContainer);
+      }
+    }
+
+    var ignoreAllRequestsButton = document.createElement("button");
+    ignoreAllRequestsButton.textContent = "Ignore All Requests";
+    ignoreAllRequestsButton.onclick = function () {
+      let rows = document.querySelectorAll('li.torRow');
+      for (let i = rows.length - 1; i >= 0; i--) {
+        let requestLink = rows[i].querySelector('a.torTitle[href*="/tor/viewRequest.php/"]');
+        if (requestLink) {
+          let requestId = requestLink.href.split("/").pop();
+          if (!listOfIgnoredRequests.includes(requestId)) {
+            let icon = rows[i].querySelector('img[src*="thumbs"]');
+            if (icon) {
+              ignoreRequest(icon, requestId, rows[i]);
+            }
+          }
+        }
+      }
+    };
+
+    var unIgnoreAllRequestsButton = document.createElement("button");
+    unIgnoreAllRequestsButton.textContent = "Unignore All Requests";
+    unIgnoreAllRequestsButton.onclick = function () {
+      let rows = document.querySelectorAll('li.torRow');
+      for (let i = rows.length - 1; i >= 0; i--) {
+        let requestLink = rows[i].querySelector('a.torTitle[href*="/tor/viewRequest.php/"]');
+        if (requestLink) {
+          let requestId = requestLink.href.split("/").pop();
+          if (listOfIgnoredRequests.includes(requestId)) {
+            let icon = rows[i].querySelector('img[src*="thumbs"]');
+            if (icon) {
+              ignoreRequest(icon, requestId, rows[i]);
+            }
+          }
+        }
+      }
+    };
+
+    massActionsDiv.appendChild(ignoreAllRequestsButton);
+    massActionsDiv.appendChild(document.createTextNode(" "));
+    massActionsDiv.appendChild(unIgnoreAllRequestsButton);
+    massActionsDiv.appendChild(document.createElement("br"));
   }
 
   if (DEBUG > 0) console.log("Ignore Torrents script done.");
